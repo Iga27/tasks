@@ -16,6 +16,7 @@ namespace IOStreams
 
     public static class TestTasks
     {
+
         /// <summary>
         /// Parses Resourses\Planets.xlsx file and returns the planet data: 
         ///   Jupiter     69911.00
@@ -32,35 +33,31 @@ namespace IOStreams
 
             using (var package = Package.Open(xlsxFileName, FileMode.Open, FileAccess.Read))
             {
-                var part1 = package.GetPart(new Uri("/xl/sharedStrings.xml", UriKind.Relative));
-                var part2 = package.GetPart(new Uri("/xl/worksheets/sheet1.xml", UriKind.Relative));
+                var descendants = GetDocument(package, "/xl/sharedStrings.xml").Root.Descendants();
 
-                using (var planetSource = part1.GetStream(FileMode.Open, FileAccess.Read))
+                foreach (var lvl1 in descendants.Take(descendants.Count() - 4))
                 {
-                    XDocument xDoc1 = XDocument.Load(planetSource);
-
-                    var descendants = xDoc1.Root.Descendants(); 
-
-                    foreach (var lvl1 in descendants.Take(descendants.Count() - 4))
+                    foreach (var lvl2 in lvl1.Elements())
                     {
-                        foreach (var lvl2 in lvl1.Elements())
-                        {
-                            list.Add(new PlanetInfo() { Name = lvl2.Value });
-                        }
+                        list.Add(new PlanetInfo() { Name = lvl2.Value });
                     }
                 }
-                using (var radiusSource = part2.GetStream(FileMode.Open, FileAccess.Read))
+                var xDoc = GetDocument(package, "/xl/worksheets/sheet1.xml");
+                var radii = xDoc.Root.Descendants(xDoc.Root.Name.Namespace + "v").Skip(3)
+                    .Where((m, n) => n % 2 == 0).ToArray();
+                for (int i = 0; i < radii.Count(); i++)
                 {
-                    XDocument xDoc2 = XDocument.Load(radiusSource);
-
-                    var radii = xDoc2.Root.Descendants(xDoc2.Root.Name.Namespace + "v").Skip(3).Where((m, n) => n % 2 == 0);
-                    for (int i = 0; i < radii.Count(); i++)
-                    {
-                        list[i].MeanRadius = double.Parse(String.Format("{0}", radii.ElementAt(i).Value.Replace('.', ',')));
-                    }
+                    list[i].MeanRadius = double.Parse(String.Format("{0}", radii[i].Value.Replace('.', ',')));
                 }
             }
             return list;
+        }
+
+        private static XDocument GetDocument(Package package,string path)
+        {
+            var part = package.GetPart(new Uri(path, UriKind.Relative));
+            var source = part.GetStream(FileMode.Open, FileAccess.Read);
+            return XDocument.Load(source);
         }
 
 
@@ -89,29 +86,18 @@ namespace IOStreams
         /// <returns>output stream</returns>
         public static Stream DecompressStream(string fileName, DecompressionMethods method)
         {
-            var outStream = new MemoryStream();
-
             var source = File.Open(fileName, FileMode.Open, FileAccess.Read);
-             
-                if (method == DecompressionMethods.Deflate)
-                {
-                    using (var decompressStream = new DeflateStream(source, CompressionMode.Decompress))
-                    {
-                        decompressStream.CopyTo(outStream);
-                    }   
-                }
-                if (method == DecompressionMethods.GZip)
-                {
-                    using (var decompressStream = new GZipStream(source, CompressionMode.Decompress))
-                    {
-                        decompressStream.CopyTo(outStream);
-                    }
-                }
-                if (method == DecompressionMethods.None)
-                    return source;
-             
-            outStream.Position = 0;
-            return outStream;
+
+            if (method == DecompressionMethods.Deflate)
+            {
+                return new DeflateStream(source, CompressionMode.Decompress);
+            }
+            if (method == DecompressionMethods.GZip)
+            {
+                return new GZipStream(source, CompressionMode.Decompress);
+            }
+
+            return source;
         }
 
 
@@ -123,12 +109,7 @@ namespace IOStreams
         /// <returns>Unicoded file content</returns>
         public static string ReadEncodedText(string fileName, string encoding)
         {
-             string text;
-             using (var source = new StreamReader(fileName, System.Text.Encoding.GetEncoding(encoding)))
-             {
-                  text = source.ReadToEnd();
-             }
-             return text;
+            return File.ReadAllText(fileName, Encoding.GetEncoding(encoding));
         }
     }
 
