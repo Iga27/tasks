@@ -29,7 +29,7 @@ namespace Task.Generics
         /// </example>
         public static string ConvertToString<T>(this IEnumerable<T> list)
         {
-            return String.Join(ListSeparator.ToString(),list);
+            return String.Join(ListSeparator.ToString(), list);
         }
 
         /// <summary>
@@ -53,13 +53,13 @@ namespace Task.Generics
             var splittedList = list.Split(ListSeparator);
             var outputList = new List<T>();
             var typeConverter = TypeDescriptor.GetConverter(typeof(T));
-            foreach(var item in splittedList)
+            foreach (var item in splittedList)
             {
-                var value=typeConverter.ConvertFromString(item);
+                var value = typeConverter.ConvertFromString(item);
                 outputList.Add((T)value);
             }
             return outputList;
-        }        
+        }
     }
 
     public static class ArrayExtentions
@@ -106,9 +106,9 @@ namespace Task.Generics
         ///   }
         /// </example>
         public static void SortTupleArray<T1, T2, T3>(this Tuple<T1, T2, T3>[] array, int sortedColumn, bool ascending)
-            where T1: IComparable
-            where T2: IComparable
-            where T3: IComparable
+            where T1 : IComparable
+            where T2 : IComparable
+            where T3 : IComparable
         {
             var sign = ascending ? 1 : -1;
             switch (sortedColumn)
@@ -127,108 +127,105 @@ namespace Task.Generics
         }
     }
 
-    /// <summary>
-    ///   Generic singleton class
-    /// </summary>
-    /// <example>
-    ///   This code should return the same MyService object every time:
-    ///   MyService singleton = Singleton<MyService>.Instance;
-    /// </example>
-    public static class Singleton<T> where T: class,new()
-    {
-        private static T field = new T();
-
-        static Singleton() { }
-        public static T Instance
+        /// <summary>
+        ///   Generic singleton class
+        /// </summary>
+        /// <example>
+        ///   This code should return the same MyService object every time:
+        ///   MyService singleton = Singleton<MyService>.Instance;
+        /// </example>
+        public static class Singleton<T> where T : class,new()
         {
-            get 
+            private static readonly Lazy<T> lazy = new Lazy<T>();
+
+            public static T Instance { get { return lazy.Value; } }
+            static Singleton()
             {
-                return field;
             }
         }
-    }
 
 
-
-    public static class FunctionExtentions
-    {
-        /// <summary>
-        ///   Tries to invoke the specified function up to 3 times if the result is unavailable 
-        /// </summary>
-        /// <param name="function">specified function</param>
-        /// <returns>
-        ///   Returns the result of specified function, if WebException occurs duaring request then exception should be logged into trace 
-        ///   and the new request should be started (up to 3 times).
-        /// </returns>
-        /// <example>
-        ///   Sometimes if network is unstable it is required to try several request to get data:
-        ///   
-        ///   Func<string> f1 = ()=>(new System.Net.WebClient()).DownloadString("http://www.google.com/");
-        ///   string data = f1.TimeoutSafeInvoke();
-        ///   
-        ///   If the first attemp to download data is failed by WebException then exception should be logged to trace log and the second attemp should be started.
-        ///   The second attemp has the same workflow.
-        ///   If the third attemp fails then this exception should be rethrow to the application.
-        /// </example>
-        public static T TimeoutSafeInvoke<T>(this Func<T> function)
+        public static class FunctionExtentions
         {
-            int attempts = 0;
-            while (attempts < 2)
+            /// <summary>
+            ///   Tries to invoke the specified function up to 3 times if the result is unavailable 
+            /// </summary>
+            /// <param name="function">specified function</param>
+            /// <returns>
+            ///   Returns the result of specified function, if WebException occurs duaring request then exception should be logged into trace 
+            ///   and the new request should be started (up to 3 times).
+            /// </returns>
+            /// <example>
+            ///   Sometimes if network is unstable it is required to try several request to get data:
+            ///   
+            ///   Func<string> f1 = ()=>(new System.Net.WebClient()).DownloadString("http://www.google.com/");
+            ///   string data = f1.TimeoutSafeInvoke();
+            ///   
+            ///   If the first attemp to download data is failed by WebException then exception should be logged to trace log and the second attemp should be started.
+            ///   The second attemp has the same workflow.
+            ///   If the third attemp fails then this exception should be rethrow to the application.
+            /// </example>
+            public static T TimeoutSafeInvoke<T>(this Func<T> function)
             {
-                try
+                const int attemptsLimit = 2;
+                int attempts = 0;
+                while (attempts < attemptsLimit)
                 {
-                    return function();   
+                    try
+                    {
+                        return function();
+                    }
+                    catch (WebException ex)
+                    {
+                        Trace.WriteLine(ex);
+                        attempts++;
+                    }
                 }
-                catch (WebException ex)
-                {
-                 Trace.WriteLine(ex);                
-                  attempts++;
-                }
-            }         
-  
-            return function();
-        }
+
+                return function();
+            }
 
 
-        /// <summary>
-        ///   Combines several predicates using logical AND operator 
-        /// </summary>
-        /// <param name="predicates">array of predicates</param>
-        /// <returns>
-        ///   Returns a new predicate that combine the specified predicated using AND operator
-        /// </returns>
-        /// <example>
-        ///   var result = CombinePredicates(new Predicate<string>[] {
-        ///            x=> !string.IsNullOrEmpty(x),
-        ///            x=> x.StartsWith("START"),
-        ///            x=> x.EndsWith("END"),
-        ///            x=> x.Contains("#")
-        ///        })
-        ///   should return the predicate that identical to 
-        ///   x=> (!string.IsNullOrEmpty(x)) && x.StartsWith("START") && x.EndsWith("END") && x.Contains("#")
-        ///
-        ///   The following example should create predicate that returns true if int value between -10 and 10:
-        ///   var result = CombinePredicates(new Predicate<int>[] {
-        ///            x=> x>-10,
-        ///            x=> x<10
-        ///       })
-        /// </example>
-        public static Predicate<T> CombinePredicates<T>(Predicate<T>[] predicates)
-        {
-            bool flag = true;
-            Predicate<T> Output = delegate(T x)
+            /// <summary>
+            ///   Combines several predicates using logical AND operator 
+            /// </summary>
+            /// <param name="predicates">array of predicates</param>
+            /// <returns>
+            ///   Returns a new predicate that combine the specified predicated using AND operator
+            /// </returns>
+            /// <example>
+            ///   var result = CombinePredicates(new Predicate<string>[] {
+            ///            x=> !string.IsNullOrEmpty(x),
+            ///            x=> x.StartsWith("START"),
+            ///            x=> x.EndsWith("END"),
+            ///            x=> x.Contains("#")
+            ///        })
+            ///   should return the predicate that identical to 
+            ///   x=> (!string.IsNullOrEmpty(x)) && x.StartsWith("START") && x.EndsWith("END") && x.Contains("#")
+            ///
+            ///   The following example should create predicate that returns true if int value between -10 and 10:
+            ///   var result = CombinePredicates(new Predicate<int>[] {
+            ///            x=> x>-10,
+            ///            x=> x<10
+            ///       })
+            /// </example>
+            public static Predicate<T> CombinePredicates<T>(Predicate<T>[] predicates)
             {
-                foreach (var p in predicates)
+                bool flag = true;
+                return x =>
                 {
-                    flag = flag && p(x);
-                }
-                return flag;
-            };
+                    foreach (var p in predicates)
+                    {
+                        flag = flag && p(x);
+                    }
+                    return flag;
+                };
 
-            return Output;
+            }
+
+
         }
-
-
     }
-
-}
+ 
+ 
+ 
