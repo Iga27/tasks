@@ -138,7 +138,7 @@ namespace LinqToXml
         /// </example>
         public static string GetFlattenString(XElement xmlRepresentation)
         {
-            return String.Join("",xmlRepresentation.ToString().Split(new string[] { Environment.NewLine }, StringSplitOptions.None));
+            return String.Join("", xmlRepresentation.ToString().Replace(Environment.NewLine, ""));
         }
 
         /// <summary>
