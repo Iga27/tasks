@@ -141,7 +141,8 @@ namespace EnumerableTask
         /// </example>
         public IEnumerable<T> PropagateItemsByPositionIndex<T>(IEnumerable<T> data)
         {
-            foreach(var index in data.Select((x,i)=>i))
+            var query=data.Select((x,i)=>i);
+            foreach(var index in query)
             {
                 var count=index;
                 while(count>=0)
