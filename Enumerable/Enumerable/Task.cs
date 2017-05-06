@@ -77,15 +77,7 @@ namespace EnumerableTask
         /// </example>
         public IEnumerable<long> GetMovingSumSequence(IEnumerable<int> data)
         {
-            return data.Select((x,index) =>
-                {int i=0;
-                    while(i<index)
-                    {
-                        x += data.ToArray()[i];
-                        i++;
-                    }
-                    return (long)x;
-                });
+            return data.Select((x, i) => (long)data.Take(i + 1).Sum());
         }
 
 
@@ -109,7 +101,7 @@ namespace EnumerableTask
             if(prefix==null)
                 throw new ArgumentNullException();
 
-            return data.Where(x=>x!=null && x.StartsWith(prefix.ToLower()));
+            return data.Where(x=>x!=null && x.StartsWith(prefix,StringComparison.CurrentCultureIgnoreCase));
         }
 
         /// <summary> Returns every second item from source sequence</summary>
@@ -141,16 +133,7 @@ namespace EnumerableTask
         /// </example>
         public IEnumerable<T> PropagateItemsByPositionIndex<T>(IEnumerable<T> data)
         {
-            var query=data.Select((x,i)=>i);
-            foreach(var index in query)
-            {
-                var count=index;
-                while(count>=0)
-                {
-                    yield return data.ToArray()[index];
-                    count--;
-                }
-            }
+            return data.SelectMany((x, i) =>Enumerable.Repeat(x, i+1));
         }
 
         /// <summary>Finds all used char in string sequence</summary>
@@ -167,8 +150,7 @@ namespace EnumerableTask
         /// </example>
         public IEnumerable<char> GetUsedChars(IEnumerable<string> data)
         {
-            var line = String.Join(String.Empty, data);
-            return line.ToCharArray().Distinct();
+           return data.SelectMany(x=>!String.IsNullOrEmpty(x) ? x : String.Empty).Distinct();
         }
 
 
@@ -219,7 +201,7 @@ namespace EnumerableTask
         /// </example>
         public int GetCountOfGreaterThen10(IEnumerable<int> data)
         {
-            return data.Count(x => x > 10);
+            return data.Where(x => x > 10).Count();
         }
 
 
@@ -235,7 +217,8 @@ namespace EnumerableTask
         /// </example>
         public string GetFirstContainsFirst(IEnumerable<string> data)
         {
-            return data.Where(x =>x!=null && x.ToLower().Contains("first")).FirstOrDefault();
+            return data.Where(x =>x!=null && x.IndexOf("first",StringComparison.CurrentCultureIgnoreCase)>=0)
+                .FirstOrDefault();
         }
 
         /// <summary> Counts the number of unique strings with length=3 </summary>
@@ -267,9 +250,7 @@ namespace EnumerableTask
         /// </example>
         public IEnumerable<Tuple<string, int>> GetCountOfStrings(IEnumerable<string> data)
         {
-            var groups = data.GroupBy(x=>x);
-            foreach (var item in groups)
-                yield return new Tuple<string, int>(item.First(), item.Count());
+            return data.GroupBy(x => x).Select(y => new Tuple<string, int>(y.First(), y.Count()));            
         }
 
         /// <summary> Counts the number of strings with max length in sequence </summary>
@@ -285,16 +266,9 @@ namespace EnumerableTask
         ///   { } => { }
         /// </example>
         public int GetCountOfStringsWithMaxLength(IEnumerable<string> data)
-        {
-           /* if (data.Count()==0)
-                return 0;
-
-           int maxLength = data.Max(x => string.IsNullOrEmpty(x) ? 0 : x.Length);
-           return data.Count(x => x != null && x.Length == maxLength);*/ 
-            //it doesn't work
-            //error message: should return 0 if no items found
-
-            throw new NotImplementedException();
+        {            
+            var collection= data.Select(x => !String.IsNullOrEmpty(x) ? x.Length : 0).GroupBy(y => y).OrderBy(y => y.Key).LastOrDefault();
+            return collection!=null ? collection.Count() : 0;
         }
 
 
@@ -317,7 +291,7 @@ namespace EnumerableTask
             if (data == null)
                 throw new ArgumentNullException();
 
-            return data.Count(x => Char.IsDigit(x));
+            return data.Where(x => Char.IsDigit(x)).Count();
         }
 
 
@@ -330,8 +304,7 @@ namespace EnumerableTask
         public int GetSpecificEventEntriesCount(EventLogEntryType value)
         {
              EventLogEntryCollection systemEvents = (new EventLog("System", ".")).Entries;
-            // return systemEvents.Cast<EventLogEntry>().Where(x =>x!=null && x.EntryType == value).Count();
-            throw new NotImplementedException();
+             return systemEvents.OfType<EventLogEntry>().Where(x => x != null && x.EntryType == value).Count();            
         }
 
 
@@ -351,16 +324,9 @@ namespace EnumerableTask
             if (assembly == null)
                 throw new ArgumentNullException();
 
-              //    return assembly.ExportedTypes.Where(x=>x.IsAssignableFrom(typeof(IEnumerable<>)))
-              //        .Select(x=>x.Name);
-
-             // return assembly.ExportedTypes.Where(x=>x.GetInterface("IEnumerable")!=null)
-             //       .Select(x=>x.Name);
-
-             // GetInterfaces().Contains(typeof(IEnumerable<>))
-            
-                
-             throw new NotImplementedException();
+                 return assembly.ExportedTypes
+                    .Where(x => x.GetInterface(typeof(System.Collections.IEnumerable).Name) != null)
+                       .Select(x=>x.Name).Distinct(); 
         }
 
         /// <summary>Calculates sales sum by IsAssignableFrom</summary>
@@ -376,19 +342,8 @@ namespace EnumerableTask
         /// </example>
         public int[] GetQuarterSales(IEnumerable<Tuple<DateTime, int>> sales)
         {
-            var array=new int[4];
-            var quarters = sales.GroupBy(x => (x.Item1.Month + 2) / 3);           
-            //return quarters.Select(x => x.Select(y => y.Item2).Sum()).ToArray();
-
-           /*  int i=0;
-            foreach(var group in quarters)
-            {
-                array[i] = group.Select(x=>x.Item2).Sum();
-                i++;
-            }
-            return array;*/ 
-
-            throw new NotImplementedException();
+            var result=new int[]{0,0,0,0};
+            return result.Select((x, i) => x + sales.Where(g => (g.Item1.Month + 2) / 3 == i+1).Select(y => y.Item2).Sum()).ToArray();
         }
 
 
@@ -419,8 +374,8 @@ namespace EnumerableTask
         /// </example>
         public IEnumerable<char> GetMissingDigits(IEnumerable<string> data)
         {
-            var digits=String.Join(",", data).ToCharArray().Where(x => Char.IsDigit(x));
-            var array = new char[10] {'0','1','2','3','4','5','6','7','8','9'};
+            var array = "0123456789";
+            var digits = data.SelectMany(x => x.Where(c => Char.IsDigit(c)));
             return array.Except(digits);
        }
 
@@ -439,8 +394,8 @@ namespace EnumerableTask
         /// </example>
         public IEnumerable<string> SortDigitNamesByNumericOrder(IEnumerable<string> data)
         {
-            var list=new List<string>(){"zero","one","two","three","four","five","six","seven","eight","nine"};
-            return data.OrderBy(x=>list.IndexOf(x)); 
+            var list=new string[]{"zero","one","two","three","four","five","six","seven","eight","nine"};
+            return data.OrderBy(x=>Array.IndexOf(list,x)); 
         }
 
         /// <summary> Combines numbers and fruits </summary>
@@ -475,17 +430,7 @@ namespace EnumerableTask
         /// </example>
         public IEnumerable<char> GetCommonChars(IEnumerable<string> data)
         {
-            var output=new List<char>();
-            if (data.Count()!= 0)
-            {
-                var array = data.First().ToCharArray();
-                for (int i = 0; i < array.Length; i++)
-                {
-                    if (data.All(x => x.Contains(array[i])))
-                        output.Add(array[i]);
-                }
-            }
-            return output.OrderBy(x=>x);
+            return data.Any()!=true ? Enumerable.Empty<char>() : data.Aggregate((s1, s2) =>new String((s1.Intersect(s2).ToArray()))); 
         }
 
         /// <summary> Calculates sum of all integers from object array </summary>
@@ -501,7 +446,7 @@ namespace EnumerableTask
         /// </example>
         public int GetSumOfAllInts(object[] data)
         {
-            return data.Where(x => x is Int32).Select(x => (Int32)x).Sum();
+            return data.OfType<Int32>().Sum();
         }
 
 
@@ -518,7 +463,7 @@ namespace EnumerableTask
         /// </example>
         public IEnumerable<string> GetStringsOnly(object[] data)
         {
-            return data.Where(x=>x is String).Select(x=>(String)x);
+            return data.OfType<String>();
         }
 
         /// <summary> Calculates the total length of strings</summary>
@@ -569,10 +514,7 @@ namespace EnumerableTask
         /// </example>
         public bool IsAllStringsAreUppercase(IEnumerable<string> data)
         {
-            if(data.Count()!=0)
-            return data.All(x=> !string.IsNullOrEmpty(x) && x.All(y=>Char.IsUpper(y)));
-
-            return false;
+            return data.DefaultIfEmpty().All(x => !String.IsNullOrEmpty(x) && x.All(y => Char.IsUpper(y)));
         }
 
         /// <summary> Finds first subsequence of negative integers </summary>
@@ -629,7 +571,7 @@ namespace EnumerableTask
         /// </example>
         public string GetNextVersionFromList(IEnumerable<string> versions, string currentVersion)
         {
-            return versions.SkipWhile(x => x != currentVersion).Skip(1).Take(1).FirstOrDefault();
+            return versions.SkipWhile(x => x != currentVersion).Skip(1).FirstOrDefault();
         }
 
         /// <summary>
@@ -705,18 +647,7 @@ namespace EnumerableTask
         /// </example>
         public double GetAverageOfDoubleValues(IEnumerable<object> data)
         {
-             /*if(data.Count()!=0)
-             return data.Where(x => x is Double).Select(x =>(double)x).Average();
-             return 0;*/  
-            //doesn't work this way
-
-             if(data.Count()!=0)
-            {
-                var tmp = data.Where(x => x is Double);
-                if (tmp.Count() != 0)
-                   return tmp.Select(x => (double)x).Average();
-            }
-            return 0;  
+            return data.OfType<Double>().DefaultIfEmpty().Average();
         }
 
     }
