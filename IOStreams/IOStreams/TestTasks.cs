@@ -29,34 +29,23 @@ namespace IOStreams
         /// <returns>sequence of PlanetInfo</returns>
         public static IEnumerable<PlanetInfo> ReadPlanetInfoFromXlsx(string xlsxFileName)
         {
-            var list = new List<PlanetInfo>();
-
             using (var package = Package.Open(xlsxFileName, FileMode.Open, FileAccess.Read))
             {
                 var descendants = GetDocument(package, "/xl/sharedStrings.xml").Root.Descendants();
-
-                foreach (var lvl1 in descendants.Take(descendants.Count() - 4))
-                {
-                    foreach (var lvl2 in lvl1.Elements())
-                    {
-                        list.Add(new PlanetInfo() { Name = lvl2.Value });
-                    }
-                }
+                var planets = descendants.Reverse().Skip(4).Reverse().SelectMany(lvl1 => lvl1.Elements().Select(lvl2 =>lvl2.Value));
+               
                 var xDoc = GetDocument(package, "/xl/worksheets/sheet1.xml");
                 var radii = xDoc.Root.Descendants(xDoc.Root.Name.Namespace + "v").Skip(3)
-                    .Where((m, n) => n % 2 == 0).ToArray();
-                for (int i = 0; i < radii.Count(); i++)
-                {
-                    list[i].MeanRadius = double.Parse(String.Format("{0}", radii[i].Value.Replace('.', ',')));
-                }
-            }
-            return list;
+                    .Where((m, n) => n % 2 == 0).Select(x => double.Parse(String.Format("{0}", x.Value.Replace('.', ','))));
+
+               return planets.Zip(radii, (p, r) => new PlanetInfo() { Name = p, MeanRadius = r });
+            }            
         }
 
         private static XDocument GetDocument(Package package,string path)
         {
             var part = package.GetPart(new Uri(path, UriKind.Relative));
-            var source = part.GetStream(FileMode.Open, FileAccess.Read);
+            using(var source = part.GetStream(FileMode.Open, FileAccess.Read))
             return XDocument.Load(source);
         }
 

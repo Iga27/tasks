@@ -19,13 +19,10 @@ namespace LinqToXml
         {
             var root = XElement.Parse(xmlRepresentation);
 
-            return new XElement("Root", from data in root.Elements("Data")
-                                               group data by (string)data.Element("Category")
-                                                   into groups
-                                                   select new XElement("Group", new XAttribute("ID", groups.Key),
-                                                      from g in groups
-                                                      select new XElement("Data", g.Element("Quantity"),
-                                                          g.Element("Price")))).ToString();
+            return new XElement("Root", root.Elements("Data").GroupBy(x => (string)x.Element("Category")).Select(g=>
+                               new XElement("Group",new XAttribute("ID",g.Key),g.Select(e=>
+                                            new XElement("Data",e.Element("Quantity"),e.Element("Price"))))))
+                                                            .ToString();
         }
 
         /// <summary>
@@ -138,7 +135,7 @@ namespace LinqToXml
         /// </example>
         public static string GetFlattenString(XElement xmlRepresentation)
         {
-            return String.Join("", xmlRepresentation.ToString().Replace(Environment.NewLine, ""));
+           return xmlRepresentation.ToString();
         }
 
         /// <summary>
@@ -149,19 +146,13 @@ namespace LinqToXml
         public static int GetOrdersValue(string xmlRepresentation)
         {
             var root = XElement.Parse(xmlRepresentation);
-            int sum = 0;
             var products = root.Elements("Orders").Elements("Order").Elements("product");
             var values = root.Elements("products").Descendants();
 
-            foreach (var product in products)
-            {
-                foreach (var value in values)
-                {
-                    if ((int)value.Attribute("Id") == (int)product)
-                        sum += (int)value.Attribute("Value");
-                }
-            }
-            return sum;
+            return products.Join(values,
+                              p => p.Value,
+                              v => v.Attribute("Id").Value,
+                              (p, v) => (int)v.Attribute("Value")).Sum();  
         }
 
     }
