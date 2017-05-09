@@ -18,12 +18,9 @@ namespace Reflection.Tasks
         public static IEnumerable<string> GetPublicObsoleteClasses(string assemblyName)
         {
             var assembly=Assembly.Load(assemblyName);
-            var types = assembly.GetTypes();
-            foreach(var type in types)
-            {
-                if (type.IsClass && type.IsPublic && type.IsDefined(typeof(ObsoleteAttribute),false))
-                    yield return type.Name;
-            }
+
+            return assembly.GetTypes().Where(type => type.IsClass && type.IsPublic && type.IsDefined(typeof(ObsoleteAttribute), false))
+                .Select(x => x.Name);
         }
 
         /// <summary>
@@ -45,13 +42,19 @@ namespace Reflection.Tasks
         /// <returns>property value of obj for required propertyPath</returns>
         public static T GetPropertyValue<T>(this object obj, string propertyPath)
         {
-          var paths = propertyPath.Split('.');      
-          foreach(var path in paths)
+          var paths = propertyPath.Split('.');
+ 
+           foreach(var path in paths)
           {
-              var property = obj.GetType().GetProperty(path);
-              obj = property.GetValue(obj, null);
+              obj = obj.GetSinglePropertyVal(path);
           }
           return (T)obj;
+        }
+
+        private static object GetSinglePropertyVal(this object obj,string singlePath)
+        {
+            var property = obj.GetType().GetProperty(singlePath);
+            return property.GetValue(obj, null);
         }
 
 
@@ -74,13 +77,13 @@ namespace Reflection.Tasks
         public static void SetPropertyValue(this object obj, string propertyPath, object value)
         {
             var paths=propertyPath.Split('.');
-            for(int i=0;i<paths.Count()-1;i++)
+
+            for(int i=0;i<paths.Length-1;i++)
             {
-                var property = obj.GetType().GetProperty(paths[i]);
-                obj = property.GetValue(obj, null);
+                obj = obj.GetSinglePropertyVal(paths[i]);
             }
-            var prop = obj.GetType().BaseType.GetProperty(paths.Last());
-            prop.SetValue(obj, value, null);
+            var property = obj.GetType().BaseType.GetProperty(paths.Last());
+            property.SetValue(obj, value, null);
         }
     }
 }

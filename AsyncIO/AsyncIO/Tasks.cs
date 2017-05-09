@@ -22,11 +22,7 @@ namespace AsyncIO
         /// <returns>The sequence of downloaded url content</returns>
         public static IEnumerable<string> GetUrlContent(this IEnumerable<Uri> uris) 
         {
-            var client = new WebClient();
-            foreach (var uri in uris)
-            {              
-                yield return client.DownloadString(uri);
-            }
+            return uris.Select(x => new WebClient().DownloadString(x));
         }
 
 
@@ -42,18 +38,10 @@ namespace AsyncIO
         /// <returns>The sequence of downloaded url content</returns>
         public static IEnumerable<string> GetUrlContentAsync(this IEnumerable<Uri> uris, int maxConcurrentStreams)
         {
-            int toSkip=0;
-            while (toSkip < uris.Count())
-            {
-                var query = uris.Skip(toSkip).Take(maxConcurrentStreams);
+            var groups = uris.Select((x, i) => new { Item = x, Index = i })
+                         .GroupBy(x => x.Index / maxConcurrentStreams,x => x.Item);
 
-                var task = Task.WhenAll(query.Select(x => new WebClient().DownloadStringTaskAsync(x)));
-                string[] array = task.Result;
-                foreach (var item in array)
-                    yield return item;
-
-                toSkip += maxConcurrentStreams;
-            }
+            return groups.SelectMany(g => Task.WhenAll(g.Select(x => new WebClient().DownloadStringTaskAsync(x))).Result.Select(x => x));
         }
 
 
@@ -68,14 +56,10 @@ namespace AsyncIO
         public static async Task<string> GetMD5Async(this Uri resource)
         {
             var client = new WebClient();
-            var content = await client.DownloadDataTaskAsync(resource);
             var algorithm = HashAlgorithm.Create("MD5");
-
-            return BitConverter.ToString(algorithm.ComputeHash(content)).Replace("-", "");             
+            return BitConverter.ToString(algorithm.ComputeHash(await client.DownloadDataTaskAsync(resource).ConfigureAwait(false)))
+                .Replace("-", "");     
         }
 
     }
-
-
-
 }

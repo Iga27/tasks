@@ -51,14 +51,8 @@ namespace Task.Generics
         public static IEnumerable<T> ConvertToList<T>(this string list)
         {
             var splittedList = list.Split(ListSeparator);
-            var outputList = new List<T>();
             var typeConverter = TypeDescriptor.GetConverter(typeof(T));
-            foreach (var item in splittedList)
-            {
-                var value = typeConverter.ConvertFromString(item);
-                outputList.Add((T)value);
-            }
-            return outputList;
+            return splittedList.Select(x => (T)typeConverter.ConvertFromString(x));          
         }
     }
 
@@ -110,21 +104,16 @@ namespace Task.Generics
             where T2 : IComparable
             where T3 : IComparable
         {
+            const int maxIndex=2;
+            if (sortedColumn > maxIndex || sortedColumn < 0)
+                throw new IndexOutOfRangeException();
+
             var sign = ascending ? 1 : -1;
-            switch (sortedColumn)
-            {
-                case 0: Array.Sort(array, (x, y) => sign * x.Item1.CompareTo(y.Item1));
-                    break;
-
-                case 1: Array.Sort(array, (x, y) => sign * x.Item2.CompareTo(y.Item2));
-                    break;
-
-                case 2: Array.Sort(array, (x, y) => sign * x.Item3.CompareTo(y.Item3));
-                    break;
-
-                default: throw new IndexOutOfRangeException();
-            }
+        
+           var columns = new Func<Tuple<T1, T2, T3>,IComparable>[] { tuple=>tuple.Item1, tuple=>tuple.Item2, tuple=>tuple.Item3 };
+           Array.Sort(array, (x, y) => sign * columns[sortedColumn](x).CompareTo(columns[sortedColumn](y)));
         }
+        
     }
 
         /// <summary>
